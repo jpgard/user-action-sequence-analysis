@@ -1,10 +1,19 @@
 """Explore sequences of user actions using variational autoencoder."""
 
-from keras.layers import Input, Dense
-from keras.models import Model
+from keras.layers import Dense
 from keras import regularizers
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+from preprocessing.foldit import get_pid_uid_sequences
+from sklearn.model_selection import train_test_split
+from sklearn.manifold import TSNE
+from keras.layers import Input, LSTM, RepeatVector
+from keras.models import Model
+from preprocessing import preprocess_lstm_data
+from ggplot import *
+
+MAX_LEN = 5000
 
 
 def toy_example_mnist(type="regularized"):
@@ -30,7 +39,7 @@ def toy_example_mnist(type="regularized"):
     x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
     print(x_train.shape)
     print(x_test.shape)
-    if type == "standard": # from section "Let's build the simplest possible autoencoder"
+    if type == "standard":  # from section "Let's build the simplest possible autoencoder"
         # this model maps an input to its reconstruction
         autoencoder = Model(input_img, decoded)
         # this model maps an input to its encoded representation
@@ -49,7 +58,7 @@ def toy_example_mnist(type="regularized"):
                         batch_size=256,
                         shuffle=True,
                         validation_data=(x_test, x_test))
-    elif type == "regularized": # from section "Adding a sparsity constraint on the encoded representations"
+    elif type == "regularized":  # from section "Adding a sparsity constraint on the encoded representations"
         # train a regularized model for 100 epochs; longer because it is less likely to overfit
         encoding_dim = 32
         input_img = Input(shape=(784,))
@@ -68,7 +77,7 @@ def toy_example_mnist(type="regularized"):
         decoder = Model(encoded_input, decoder_layer(encoded_input))
         autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
         autoencoder.fit(x_train, x_train,
-                        epochs=100, #todo increase back to 100 after testing
+                        epochs=100,  # todo increase back to 100 after testing
                         batch_size=256,
                         shuffle=True,
                         validation_data=(x_test, x_test))
@@ -98,13 +107,45 @@ def toy_example_mnist(type="regularized"):
     plt.show()
     return
 
-def toy_example_lstm():
+
+def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=10, batch_size=50, n_epochs=10,
+             reg=regularizers.l1_l2(l1=0.01, l2=0.01)):
+    input_dim = X.shape[2]  # number of observations per timestep
+    # create x_train and x_test from array
+    X_train, X_test = train_test_split(X, test_size=0.2, random_state=43354)
+    # create lstm
+    inputs = Input(shape=(max_len, input_dim))
+    encoded = LSTM(latent_dim, kernel_regularizer=reg)(inputs)
+
+    decoded = RepeatVector(max_len)(encoded)
+    decoded = LSTM(input_dim, return_sequences=True, kernel_regularizer=reg)(decoded)
+
+    sequence_autoencoder = Model(inputs, decoded)
+    encoder = Model(inputs, encoded)
+    sequence_autoencoder.compile(optimizer='rmsprop', loss='binary_crossentropy')
+    sequence_autoencoder.fit(X_train, X_train,
+                             epochs=n_epochs,
+                             batch_size=batch_size,
+                             shuffle=True,
+                             validation_data=(X_test, X_test))
+    # get latent encoding for test observations
+    x_test_encoded = encoder.predict(X_test, batch_size=batch_size)
+    # use tsne to project results into lower dimension
+    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
+    tsne_results = tsne.fit_transform(x_test_encoded)
+    # plot the results
+    plt.figure(figsize=(6, 6))
+    plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=Y[:, 0])  # Y[:,0] is pid; Y[:,1] is pid
+    plt.colorbar()
+    plt.show()
     return
 
 
-
 def main():
-    toy_example_mnist()
+    # toy_example_mnist()
+    data = get_pid_uid_sequences("./data/foldit_user_events_2003433_2003465.csv", max_len=MAX_LEN)
+    X, Y = preprocess_lstm_data(data, MAX_LEN)
+    lstm_vae(X, Y)
     return
 
 
