@@ -11,6 +11,7 @@ def get_pid_uid_sequences(infile, max_len=5000):
     :param max_len: maximum length of sequence to store
     :return: hierarchical dictionary with keys [pid][uid] and values which are np.ndarray containing sequences of actions
     """
+    print("[INFO] fetching data from {}...".format(infile))
     pid_col = "puzzle_id"
     uid_col = "user_id"
     ts_col = "timestamp"
@@ -24,4 +25,5 @@ def get_pid_uid_sequences(infile, max_len=5000):
     uid_pid_values = df[[uid_col, pid_col]].drop_duplicates()
     for ix,uid,pid in uid_pid_values.itertuples():
         pid_uid_seqs[pid][uid] = df.loc[(df[uid_col] == uid) & (df[pid_col] == pid), tool_code_col].values[0:max_len]
+    print("[INFO] complete")
     return pid_uid_seqs
