@@ -109,35 +109,36 @@ def toy_example_mnist(type="regularized"):
     return
 
 
-def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=10, batch_size=50, n_epochs=20,
+def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=50, n_epochs=20,
              reg=regularizers.l1_l2(l1=0.01, l2=0.01)):
     input_dim = X.shape[2]  # number of observations per timestep
     # create x_train and x_test from array
-    X_train, X_test = train_test_split(X, test_size=0.2, random_state=43354)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=43354)
     # create lstm
-    inputs = Input(shape=(max_len, input_dim))
-    encoded = LSTM(latent_dim, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(inputs)
+    input_seq = Input(shape=(max_len, input_dim))
+    encoded = LSTM(latent_dim, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(input_seq)
+    decoder_input = Input(shape=(latent_dim,))
     decoded = RepeatVector(max_len)(encoded)
     decoded = LSTM(input_dim, return_sequences=True, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(decoded)
-
-    sequence_autoencoder = Model(inputs, decoded)
-    encoder = Model(inputs, encoded)
+    encoder = Model(input_seq, encoded)
+    sequence_autoencoder = Model(input_seq, decoded)
     sequence_autoencoder.compile(optimizer='rmsprop', loss='binary_crossentropy')
+    decoder_layer = sequence_autoencoder.layers[-1]
+    # decoder = Model(decoder_input, decoder_layer(decoder_input))
     sequence_autoencoder.fit(X_train, X_train,
                              epochs=n_epochs,
                              batch_size=batch_size,
                              shuffle=True,
                              validation_data=(X_test, X_test),
                              callbacks=[TensorBoard(log_dir='/tmp/autoencoder')])
-    import ipdb;ipdb.set_trace()
     # get latent encoding for test observations
-    x_test_encoded = encoder.predict(X_test, batch_size=batch_size)
+    X_test_encoded = encoder.predict(X_test)
     # use tsne to project results into lower dimension
-    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
-    tsne_results = tsne.fit_transform(x_test_encoded)
+    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=1000)
+    tsne_results = tsne.fit_transform(X_test_encoded)
     # plot the results
     plt.figure(figsize=(6, 6))
-    plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=Y[:, 0])  # Y[:,0] is pid; Y[:,1] is pid
+    plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=Y_test[:, 0])  # Y[:,0] is pid; Y[:,1] is uid
     plt.colorbar()
     plt.show()
     return
