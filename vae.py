@@ -122,13 +122,14 @@ def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=10, batch_size=50, n_epochs=20,
 
     sequence_autoencoder = Model(inputs, decoded)
     encoder = Model(inputs, encoded)
-    sequence_autoencoder.compile(optimizer='rmsprop', loss='binary_crossentropy') #todo: loss function might change
+    sequence_autoencoder.compile(optimizer='rmsprop', loss='binary_crossentropy')
     sequence_autoencoder.fit(X_train, X_train,
                              epochs=n_epochs,
                              batch_size=batch_size,
                              shuffle=True,
                              validation_data=(X_test, X_test),
                              callbacks=[TensorBoard(log_dir='/tmp/autoencoder')])
+    import ipdb;ipdb.set_trace()
     # get latent encoding for test observations
     x_test_encoded = encoder.predict(X_test, batch_size=batch_size)
     # use tsne to project results into lower dimension
