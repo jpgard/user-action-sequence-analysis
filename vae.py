@@ -11,7 +11,8 @@ from sklearn.manifold import TSNE
 from keras.layers import Input, LSTM, RepeatVector
 from keras.models import Model
 from preprocessing import preprocess_lstm_data
-from ggplot import *
+from keras.callbacks import TensorBoard
+# from ggplot import *
 
 MAX_LEN = 5000
 
@@ -108,26 +109,26 @@ def toy_example_mnist(type="regularized"):
     return
 
 
-def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=10, batch_size=50, n_epochs=10,
+def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=10, batch_size=50, n_epochs=20,
              reg=regularizers.l1_l2(l1=0.01, l2=0.01)):
     input_dim = X.shape[2]  # number of observations per timestep
     # create x_train and x_test from array
     X_train, X_test = train_test_split(X, test_size=0.2, random_state=43354)
     # create lstm
     inputs = Input(shape=(max_len, input_dim))
-    encoded = LSTM(latent_dim, kernel_regularizer=reg)(inputs)
-
+    encoded = LSTM(latent_dim, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(inputs)
     decoded = RepeatVector(max_len)(encoded)
-    decoded = LSTM(input_dim, return_sequences=True, kernel_regularizer=reg)(decoded)
+    decoded = LSTM(input_dim, return_sequences=True, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(decoded)
 
     sequence_autoencoder = Model(inputs, decoded)
     encoder = Model(inputs, encoded)
-    sequence_autoencoder.compile(optimizer='rmsprop', loss='binary_crossentropy')
+    sequence_autoencoder.compile(optimizer='rmsprop', loss='binary_crossentropy') #todo: loss function might change
     sequence_autoencoder.fit(X_train, X_train,
                              epochs=n_epochs,
                              batch_size=batch_size,
                              shuffle=True,
-                             validation_data=(X_test, X_test))
+                             validation_data=(X_test, X_test),
+                             callbacks=[TensorBoard(log_dir='/tmp/autoencoder')])
     # get latent encoding for test observations
     x_test_encoded = encoder.predict(X_test, batch_size=batch_size)
     # use tsne to project results into lower dimension
