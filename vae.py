@@ -12,7 +12,6 @@ from keras.layers import Input, LSTM, RepeatVector
 from keras.models import Model
 from preprocessing import preprocess_lstm_data
 from keras.callbacks import TensorBoard
-# from ggplot import *
 
 MAX_LEN = 5000
 
@@ -109,7 +108,7 @@ def toy_example_mnist(type="regularized"):
     return
 
 
-def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=50, n_epochs=20,
+def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=50, n_epochs=500,
              reg=regularizers.l1_l2(l1=0.01, l2=0.01)):
     input_dim = X.shape[2]  # number of observations per timestep
     # create x_train and x_test from array
