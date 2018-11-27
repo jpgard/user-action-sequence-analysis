@@ -12,8 +12,10 @@ from keras.layers import Input, LSTM, RepeatVector
 from keras.models import Model
 from preprocessing import preprocess_lstm_data
 from keras.callbacks import TensorBoard
+import os
+from collections import defaultdict
 
-MAX_LEN = 5000
+MAX_LEN = 50000
 
 
 def toy_example_mnist(type="regularized"):
@@ -108,7 +110,7 @@ def toy_example_mnist(type="regularized"):
     return
 
 
-def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=50, n_epochs=50,
+def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=1000, n_epochs=10,
              reg=regularizers.l1_l2(l1=0.01, l2=0.01)):
     input_dim = X.shape[2]  # number of observations per timestep
     # create x_train and x_test from array
@@ -118,7 +120,8 @@ def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=50, n_epochs=50,
     encoded = LSTM(latent_dim, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(input_seq)
     decoder_input = Input(shape=(latent_dim,))
     decoded = RepeatVector(max_len)(encoded)
-    decoded = LSTM(input_dim, return_sequences=True, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(decoded)
+    decoded = LSTM(input_dim, return_sequences=True, kernel_regularizer=reg, dropout=0.2, recurrent_dropout=0.2)(
+        decoded)
     encoder = Model(input_seq, encoded)
     sequence_autoencoder = Model(input_seq, decoded)
     sequence_autoencoder.compile(optimizer='rmsprop', loss='binary_crossentropy')
@@ -130,6 +133,7 @@ def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=50, n_epochs=50,
                              shuffle=True,
                              validation_data=(X_test, X_test),
                              callbacks=[TensorBoard(log_dir='/tmp/autoencoder')])
+    import ipdb;ipdb.set_trace()
     # get latent encoding for test observations
     X_test_encoded = encoder.predict(X_test)
     # use tsne to project results into lower dimension
@@ -143,9 +147,14 @@ def lstm_vae(X, Y, max_len=MAX_LEN, latent_dim=64, batch_size=50, n_epochs=50,
     return
 
 
-def main():
+def main(data_dir="./data", max_files=100):
     # toy_example_mnist()
-    data = get_pid_uid_sequences("./data/foldit_user_events_2003433_2003465.csv", max_len=MAX_LEN)
+    data = defaultdict(dict)
+    for ix, f in enumerate(os.listdir(data_dir)[0:max_files]):
+        fp = os.path.join(data_dir, f)
+        print("[INFO] processing file {}".format(ix))
+        pid_data = get_pid_uid_sequences(fp, max_len=MAX_LEN)
+        data.update(pid_data)
     X, Y = preprocess_lstm_data(data, MAX_LEN)
     lstm_vae(X, Y)
     return

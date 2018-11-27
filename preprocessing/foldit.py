@@ -23,6 +23,11 @@ def get_pid_uid_sequences(infile, max_len=5000):
     df[tool_code_col] = df[tool_col].cat.codes
     pid_uid_seqs = defaultdict(dict)
     uid_pid_values = df[[uid_col, pid_col]].drop_duplicates()
+    print("[INFO] \n\tunique user count: {}\n\tunique pid count: {}".format(len(uid_pid_values[uid_col].unique()),
+                                                                            len(uid_pid_values[pid_col].unique())))
+    user_sequence_lens = df.groupby([uid_col, pid_col]).size().quantile([0.1, 0.25, 0.5, 0.75, 0.9])
+    print("[INFO] printing quantiles for sequence lengths:")
+    print(user_sequence_lens)
     for ix,uid,pid in uid_pid_values.itertuples():
         pid_uid_seqs[pid][uid] = df.loc[(df[uid_col] == uid) & (df[pid_col] == pid), tool_code_col].values[0:max_len]
     print("[INFO] complete")
